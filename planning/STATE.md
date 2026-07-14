@@ -1,30 +1,36 @@
 # STATE
 
-**Статус:** planning
-**Поточна фаза:** 0 — Setup
-**Остання дія:** Рішення по сховищу і дашборду — Google Sheets (2026-07-13)
+**Статус:** in_progress
+**Поточна фаза:** 1 — Базовий трафік
+**Остання дія:** GSC connector розширено на всі бізнес-сторінки (2026-07-14)
 
 ## Що зроблено
-- [x] Специфікацію написано (SPEC.md) — 3 user stories P1/P2/P3
-- [x] Конституцію визначено (CONSTITUTION.md) — 5 принципів
-- [x] Технічний план готовий (TECH_STACK.md, ROADMAP.md)
-- [x] Задачі розписані (TASKS.md) — 35 задач у 5 фазах
-- [x] Документ "Аналіз трафіку monobank.pdf" оновлено з коментарями замовника
-- [x] Прийнято рішення: сховище — Google Sheets, дашборд — Looker Studio підключається до Sheets (не Postgres)
+- [x] Фаза 0 — структура проєкту, CI, requirements, .gitignore
+- [x] Google Sheets створено (5 аркушів)
+- [x] GA4 connector — трафік по каналах, engagement, топ сторінок
+- [x] transforms/traffic.py — нормалізація каналів, pct_of_total
+- [x] loaders/sheets.py — upsert з автоочисткою 40 тижнів
+- [x] scripts/run_pipeline.py — оркестратор
+- [x] GitHub Actions — автозапуск щопонеділка 06:00 UTC
+- [x] GSC connector — ключові слова по всіх бізнес-сторінках (876 ключів/тиждень)
+- [x] Перший реальний запис даних у Google Sheets
 
-## Архітектурне рішення
-**Сховище:** Google Sheets (замість Postgres) — простіше, без інфраструктури, замовник бачить дані напряму
-**Дашборд:** Looker Studio підключається до Google Sheets — наступний етап після збору даних
-**ETL:** Python скрипти пишуть у Sheets через Google Sheets API
+## Що зараз в Sheets
+| Аркуш | Статус | Рядків |
+|---|---|---|
+| traffic_by_channel | ✅ є дані | 9 каналів |
+| gsc_keywords | ✅ є дані | 876 ключових слів |
+| engagement | ✅ є дані | 10 каналів + 50 сторінок |
+| ads_keywords | ⏳ чекаємо Ads | порожній |
+| product_matrix | ⏳ чекаємо Ads | порожній |
 
-## Наступний крок
-Отримати доступи до сервісів:
-- Google Search Console — запит до Вікторії (підтвердження очікується)
-- Google Ads — частково є (keyword-доступ), потрібен повний read-only
-- Meta Ads — доступ відсутній, потрібен запит
+## Заблоковані задачі (чекаємо доступів)
+- Google Ads — Developer Token від ментора (T021, T021b, T021c)
+- Meta Ads — System User Token від ментора (T050, T051)
+- LinkedIn Ads — верифікація LinkedIn App (T060, T061)
+- GA4 конверсії — перевірка events налаштування (T070, T071)
 
-## Відкриті питання
-- Доступ до Google Search Console: запит до Вікторії ще не підтверджено
-- Google Ads: є частковий (keyword), потрібен повний read-only доступ
-- Meta Ads: доступ відсутній
-- Маппінг URL → Продукт: уточнити чи всі кампанії розмічені UTM-мітками
+## Наступний крок (не заблокований)
+- T015 — unit-тести для ga4.py і transforms/traffic.py
+- T016 — підключити Looker Studio до Google Sheets
+- Уточнити у ментора GA4 property для monobank.ua (публічний сайт)

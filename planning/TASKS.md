@@ -96,6 +96,40 @@
 
 ---
 
+## Чекаємо доступів (заблоковані задачі)
+
+> Ці задачі не можна починати поки немає відповідних доступів.
+
+### Google Ads (чекаємо Developer Token від ментора)
+- [ ] T021 [BLOCKED] `connectors/google_ads.py` — GoogleAdsConnector, метод `get_keywords_performance` → DataFrame(keyword, campaign, clicks, cost, impressions)
+- [ ] T021b [BLOCKED] Додати канали Google PMax, Demand Gen у transforms/traffic.py після підключення Ads
+- [ ] T021c [BLOCKED] Розподіл ключових слів на Branded / Non-branded у gsc_keywords аркуші
+
+### Meta Ads (чекаємо System User Token від ментора)
+- [ ] T050 [BLOCKED] `connectors/meta_ads.py` — MetaAdsConnector, кампанії і метрики (кліки, покази, витрати) по рекламному акаунту `455699156062655`
+- [ ] T051 [BLOCKED] Додати Meta як канал у product_matrix (Instagram, TikTok окремо якщо є розбивка)
+
+### LinkedIn Ads (чекаємо верифікацію LinkedIn App)
+- [ ] T060 [BLOCKED] `connectors/linkedin_ads.py` — LinkedInAdsConnector, кампанії і метрики
+- [ ] T061 [BLOCKED] Додати LinkedIn як канал у product_matrix
+
+### GA4 конверсії (потрібна перевірка налаштування events у GA4)
+- [ ] T070 [BLOCKED] Додати збір конверсій з GA4: Заявки, CR%, CPA заявки, CPA відкриття рахунку
+- [ ] T071 [BLOCKED] Цільові дії по продуктах:
+  - ФОП → кнопка "Відкрити ФОП моно" + форма відкриття рахунку (/fop)
+  - ЮО → кнопка "Відкрити рахунок" (/business-account)
+  - ЗП-проект → кнопка "Почати" (/business/salary)
+  - Еквайринг → кнопка "Підключити еквайринг" (/plata-by-mono)
+
+### Структура матриці (з документу — реалізувати після Ads доступів)
+- [ ] T080 [BLOCKED] `transforms/product_matrix.py` — матриця Продукт × Канал × Метрика
+  - Продукти: ЮО, ФОП, Еквайринг, ЗП-проект, Валютні рахунки, Покупка частинами, Аванс
+  - Канали: Google Organic, Google PMax, Search, Demand Gen, Branded, Non-branded, Meta, TikTok, LinkedIn
+  - Метрики трафіку: Сесії, Користувачі, Покази, Кліки, CTR
+  - Метрики конверсій: Заявки, CR%, CPA заявки, CPA відкриття рахунку
+
+---
+
 ## Фаза 4: Polish (~1д)
 
 **Мета:** Продакшн-готовність: smoke-тест, алерт, документація, code review.
