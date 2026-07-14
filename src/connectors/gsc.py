@@ -9,7 +9,12 @@ class GSCConnector:
         self.site_url = site_url
         self.service = build("searchconsole", "v1", credentials=credentials)
 
-    def get_keywords(self, date_range: tuple[str, str], row_limit: int = 100) -> pd.DataFrame:
+    def get_keywords(
+        self,
+        date_range: tuple[str, str],
+        page_filter: str = "/business/",
+        row_limit: int = 100,
+    ) -> pd.DataFrame:
         start_date, end_date = date_range
         result = self.service.searchanalytics().query(
             siteUrl=self.site_url,
@@ -17,6 +22,13 @@ class GSCConnector:
                 "startDate": start_date,
                 "endDate": end_date,
                 "dimensions": ["query", "page"],
+                "dimensionFilterGroups": [{
+                    "filters": [{
+                        "dimension": "page",
+                        "operator": "contains",
+                        "expression": page_filter,
+                    }]
+                }],
                 "rowLimit": row_limit,
             },
         ).execute()
