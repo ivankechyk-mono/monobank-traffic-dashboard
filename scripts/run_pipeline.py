@@ -12,6 +12,7 @@ load_dotenv()
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.connectors.ga4 import GA4Connector, _get_credentials
+from src.connectors.gsc import GSCConnector
 from src.transforms.traffic import normalize_channels, add_week_start
 from src.loaders.sheets import upsert_weekly_snapshot
 
@@ -63,6 +64,14 @@ def run():
     df_pages = add_week_start(df_pages, week_start)
     upsert_weekly_snapshot(df_pages, tab_name="engagement", credentials=creds, sheet_id=sheet_id)
     log.info(f"GA4 сторінки: записано {len(df_pages)} рядків")
+
+    log.info("GSC: отримую ключові слова...")
+    gsc_site_url = os.getenv("GSC_SITE_URL", "https://monobank.ua/")
+    gsc = GSCConnector(site_url=gsc_site_url, credentials=creds)
+    df_gsc = gsc.get_keywords(date_range=(week_start, week_end))
+    df_gsc = add_week_start(df_gsc, week_start)
+    upsert_weekly_snapshot(df_gsc, tab_name="gsc_keywords", credentials=creds, sheet_id=sheet_id)
+    log.info(f"GSC: записано {len(df_gsc)} рядків")
 
     log.info("Pipeline завершено успішно.")
 
