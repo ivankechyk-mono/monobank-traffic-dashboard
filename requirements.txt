@@ -1,0 +1,10 @@
+google-analytics-data==0.23.0
+google-api-python-client==2.198.0
+google-auth-oauthlib==1.4.0
+google-auth-httplib2==0.4.0
+google-ads==31.1.0
+gspread==6.2.1
+pandas==3.0.2
+python-dotenv==1.2.2
+pytest==9.1.1
+pytest-cov==7.1.0

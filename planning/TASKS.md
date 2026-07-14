@@ -9,10 +9,10 @@
 
 **Мета:** Повністю працюючий локальний розвиток, структура репозиторію, секрети в env, CI на місці.
 
-- [ ] T001 [S0.1] Ініціалізувати структуру проєкту: `src/connectors/`, `src/transforms/`, `src/loaders/`, `tests/`, `scripts/`, `migrations/`, `config/`  `src/`
-- [ ] T002 [S0.2] `docker-compose.yml` з `postgres:16`; `.env.example` з усіма змінними (GA4_PROPERTY_ID, GSC_SITE_URL, GOOGLE_ADS_CUSTOMER_ID, DATABASE_URL тощо)  `docker-compose.yml`, `.env.example`
-- [ ] T003 [S0.3] Перенести `get_google_token.py` → `scripts/get_google_token.py`; CLIENT_SECRET читається виключно з env; встановити `git-secrets` pre-commit hook  `scripts/get_google_token.py`
-- [ ] T004 [S0.4] `requirements.txt` з точними версіями (`==`); `Makefile` з таргетами `install`, `test`, `lint`  `requirements.txt`, `Makefile`
+- [x] T001 [S0.1] Ініціалізувати структуру проєкту: `src/connectors/`, `src/transforms/`, `src/loaders/`, `tests/`, `scripts/`, `migrations/`, `config/`  `src/`
+- [x] T002 [S0.2] ~~`docker-compose.yml` з postgres~~ — не потрібно, використовуємо Google Sheets; `.env` вже є
+- [x] T003 [S0.3] ~~`get_google_token.py`~~ — OAuth flow вбудований у `scripts/check_access.py` і `scripts/setup_sheets.py`; секрети читаються з env
+- [x] T004 [S0.4] `requirements.txt` з точними версіями (`==`); `Makefile` з таргетами `install`, `test`, `lint`
 - [ ] T005 [S0.5] GitHub Actions CI: workflow `.github/workflows/ci.yml` — `pytest --cov` на кожен push до `main` і `develop`  `.github/workflows/ci.yml`
 - [ ] T006 [S0.6] `.gitignore` з усіма credentials-патернами (`*.json`, `.env`, `token.*`, `client_secret*`, `credentials*`)  `.gitignore`
 - [ ] T007 [S0.7] `config/page_filters.py` — конфіг URL-фільтрів (`BUSINESS_PATH_PREFIX = "/business/"`) і маппінг URL-паттернів → продукти (заглушка для Фази 2)  `config/page_filters.py`
