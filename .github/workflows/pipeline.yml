@@ -1,0 +1,30 @@
+name: Weekly Pipeline
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # щопонеділка о 06:00 UTC
+  workflow_dispatch:      # ручний запуск з GitHub UI
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Write Google credentials
+        run: echo '${{ secrets.GOOGLE_TOKEN_JSON }}' > token.json
+
+      - name: Run pipeline
+        env:
+          GA4_PROPERTY_ID: ${{ secrets.GA4_PROPERTY_ID }}
+          GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
+        run: python scripts/run_pipeline.py

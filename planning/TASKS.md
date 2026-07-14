@@ -13,9 +13,9 @@
 - [x] T002 [S0.2] ~~`docker-compose.yml` з postgres~~ — не потрібно, використовуємо Google Sheets; `.env` вже є
 - [x] T003 [S0.3] ~~`get_google_token.py`~~ — OAuth flow вбудований у `scripts/check_access.py` і `scripts/setup_sheets.py`; секрети читаються з env
 - [x] T004 [S0.4] `requirements.txt` з точними версіями (`==`); `Makefile` з таргетами `install`, `test`, `lint`
-- [ ] T005 [S0.5] GitHub Actions CI: workflow `.github/workflows/ci.yml` — `pytest --cov` на кожен push до `main` і `develop`  `.github/workflows/ci.yml`
-- [ ] T006 [S0.6] `.gitignore` з усіма credentials-патернами (`*.json`, `.env`, `token.*`, `client_secret*`, `credentials*`)  `.gitignore`
-- [ ] T007 [S0.7] `config/page_filters.py` — конфіг URL-фільтрів (`BUSINESS_PATH_PREFIX = "/business/"`) і маппінг URL-паттернів → продукти (заглушка для Фази 2)  `config/page_filters.py`
+- [x] T005 [S0.5] GitHub Actions CI: workflow `.github/workflows/ci.yml`
+- [x] T006 [S0.6] `.gitignore` з усіма credentials-патернами
+- [x] T007 [S0.7] `config/page_filters.py` — URL-фільтри і маппінг URL → продукти
 
 **Definition of Done:**
 - `docker compose up -d` підіймає Postgres; `psql $DATABASE_URL` підключається
@@ -31,10 +31,10 @@
 
 **Незалежний тест:** Відкрити Looker Studio дашборд → побачити графік сесій по каналах за останні 30 днів з фільтром на `/business/*`.
 
-- [ ] T010 [P1][S1.1] `connectors/ga4.py` — клас `GA4Connector`; метод `get_channel_traffic(property_id, date_range, page_filter="/business/")` → `pd.DataFrame`  `src/connectors/ga4.py`
-- [ ] T011 [P1][S1.2] `transforms/traffic.py` — нормалізація назв каналів, розрахунок `pct_of_total`, дедублікація  `src/transforms/traffic.py`
-- [ ] T012 [P1][S1.3] `loaders/postgres.py` — `upsert_daily_snapshot(df, table)` через `psycopg2`; `ON CONFLICT DO UPDATE` для idempotency  `src/loaders/postgres.py`
-- [ ] T013 [P1][S1.4] Міграція БД: `migrations/001_create_traffic_by_channel_daily.sql` — таблиця `traffic_by_channel_daily(date, channel, sessions, users, pageviews, pct_of_total)`  `migrations/001_create_traffic_by_channel_daily.sql`
+- [x] T010 [P1][S1.1] `connectors/ga4.py` — клас `GA4Connector` з методами `get_channel_traffic`, `get_engagement_metrics`, `get_page_paths`
+- [x] T011 [P1][S1.2] `transforms/traffic.py` — нормалізація назв каналів, розрахунок `pct_of_total`, дедублікація
+- [x] T012 [P1][S1.3] `loaders/sheets.py` — `upsert_weekly_snapshot(df, tab_name)` з автоочисткою старших за 40 тижнів
+- [x] T013 [P1][S1.4] ~~Міграція БД~~ — не потрібно, використовуємо Google Sheets
 - [ ] T014 [P1][S1.5] `scripts/run_pipeline.py` — оркестратор фази 1; аргумент `--date yesterday`; викликає GA4Connector → traffic transforms → upsert  `scripts/run_pipeline.py`
 - [ ] T015 [P1][S1.6] Unit-тести для `connectors/ga4.py` і `transforms/traffic.py` з mock GA4 відповідями; покриття ≥ 80%  `tests/unit/test_ga4.py`, `tests/unit/test_traffic.py`
 - [ ] T016 [P1][S1.7] Looker Studio: підключити GA4 як data source; базовий звіт "Сесії за каналом на /business/*" з таблицею (Канал, Сесії, Користувачі, %) і date range picker  *(Looker Studio — зовнішній ресурс, URL у README)*
