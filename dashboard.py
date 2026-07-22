@@ -196,16 +196,25 @@ PLOTLY_LAYOUT = dict(
 def _get_gspread_client():
     import gspread
     import json
+    from google.oauth2 import service_account
+
+    SCOPES = ["https://www.googleapis.com/auth/spreadsheets",
+              "https://www.googleapis.com/auth/drive.readonly"]
+
+    # Streamlit Cloud: секція [gcp_service_account] в Secrets
+    if "gcp_service_account" in st.secrets:
+        info = dict(st.secrets["gcp_service_account"])
+        creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
+        return gspread.authorize(creds)
+
+    # env змінна (GitHub Actions / локально)
     sa_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
     if sa_json:
         info = json.loads(sa_json)
-        creds = gspread.auth.ServiceAccountCredentials.from_service_account_info(
-            info,
-            scopes=["https://www.googleapis.com/auth/spreadsheets",
-                    "https://www.googleapis.com/auth/drive.readonly"],
-        )
+        creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
         return gspread.authorize(creds)
-    # fallback: локальний OAuth token (для розробки)
+
+    # fallback: локальний OAuth token (розробка)
     from src.connectors.ga4 import _get_credentials
     creds = _get_credentials()
     return gspread.authorize(creds)
