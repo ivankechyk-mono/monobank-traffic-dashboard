@@ -583,9 +583,10 @@ with tab_overview:
             ad_spend = (float(ap["total_cost_uah"].sum()) if not ap.empty else 0) + \
                        (float(mp["spend"].sum()) if not mp.empty else 0)
             bounce   = float(ep["bounce_rate"].mean()) if not ep.empty and "bounce_rate" in ep.columns and p not in SPA_PRODUCTS else None
+            top_kw   = gp.sort_values("total_clicks", ascending=False)["top_keyword"].iloc[0] if not gp.empty and "top_keyword" in gp.columns else ""
             spark_vals = pf.groupby("week_start")["sessions"].sum().sort_index().values if not pf.empty else []
             rows_data.append({"product": p, "sessions": sessions, "organic": organic,
-                               "ctr": ctr, "position": position,
+                               "ctr": ctr, "position": position, "top_kw": top_kw,
                                "ad_spend": ad_spend, "bounce": bounce, "spark": spark_vals})
 
         rows_data.sort(key=lambda r: r["sessions"], reverse=True)
@@ -610,10 +611,12 @@ with tab_overview:
         for i, r in enumerate(rows_data):
             color = PRODUCT_COLORS.get(r["product"], TEXT_DIM)
             spa   = f' <span style="font-size:0.62rem;color:{TEXT_MUT};">SPA</span>' if r["product"] in SPA_PRODUCTS else ""
+            top_kw_cell = f'<span style="color:{TEXT_DIM};font-size:0.75rem;">{r["top_kw"]}</span>' if r["top_kw"] else f'<span style="color:{TEXT_MUT}">—</span>'
             rows_html += tr(
                 f'<td style="padding:10px 12px;font-weight:700;color:{color};">{r["product"]}{spa}</td>'
                 f'<td style="padding:10px 12px;">{progress_bar_cell(r["sessions"], max_sess, color)}</td>'
                 f'<td style="padding:10px 12px;">{progress_bar_cell(r["organic"], max_org, GREEN)}</td>'
+                f'<td style="padding:10px 12px;max-width:160px;">{top_kw_cell}</td>'
                 f'<td style="padding:10px 12px;text-align:center;">{fmt_ctr(r["ctr"])}</td>'
                 f'<td style="padding:10px 12px;text-align:center;">{fmt_pos(r["position"])}</td>'
                 f'<td style="padding:10px 12px;text-align:right;color:{TEXT};white-space:nowrap;">{fmt_uah(r["ad_spend"])}</td>'
@@ -622,8 +625,8 @@ with tab_overview:
                 i,
             )
         body = html_table(rows_html,
-                          ["Продукт", "Сесії", "Organic", "CTR", "Позиція", "Реклама ₴", "Відмови", "Тренд"],
-                          ["140px", "200px", "160px", "70px", "80px", "110px", "80px", "100px"])
+                          ["Продукт", "Сесії", "Organic", "Топ запит", "CTR", "Позиція", "Реклама ₴", "Відмови", "Тренд"],
+                          ["130px", "180px", "140px", "160px", "65px", "75px", "100px", "75px", "90px"])
         components.html(body, height=max(200, len(rows_data) * 54 + 60), scrolling=False)
 
 
@@ -826,29 +829,49 @@ with tab_organic:
                 fig2.update_layout(height=300, **layout_sc)
                 st.plotly_chart(fig2, use_container_width=True, config={"displayModeBar": False})
 
-            st.markdown(f'<div class="sec-head">Топ ключове слово по продукту</div>', unsafe_allow_html=True)
-            kw = gf.groupby(["product", "top_keyword"], as_index=False).agg(
+            st.markdown(f'<div class="sec-head">Пошукові запити по продукту</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="sec-sub">Топ запит · топ-5 запитів · кліки · CTR · позиція</div>', unsafe_allow_html=True)
+
+            kw = gf.groupby(["product", "top_keyword", "top_keywords"], as_index=False).agg(
                 clicks=("total_clicks", "sum"), impr=("total_impressions", "sum"), pos=("avg_position", "mean"))
             kw["ctr"] = (kw["clicks"] / kw["impr"] * 100).round(1)
             kw["pos"] = kw["pos"].round(1)
             kw = kw[kw["top_keyword"] != ""].sort_values("clicks", ascending=False)
             max_kw = int(kw["clicks"].max()) if not kw.empty else 1
 
+            def keyword_tags(keywords_str, top_keyword):
+                if not keywords_str:
+                    return f'<span style="color:{TEXT_DIM};font-size:0.8rem;">{top_keyword}</span>'
+                tags = [k.strip() for k in str(keywords_str).split(",") if k.strip()]
+                html = ""
+                for tag in tags[:5]:
+                    is_top = tag == top_keyword
+                    bg = BG3 if not is_top else "#1e3a5f"
+                    border = BORDER if not is_top else "#3b82f6"
+                    color = TEXT if not is_top else BLUE
+                    html += (
+                        f'<span style="display:inline-block;margin:2px 3px 2px 0;padding:2px 8px;'
+                        f'background:{bg};border:1px solid {border};border-radius:10px;'
+                        f'font-size:0.72rem;color:{color};white-space:nowrap;">{tag}</span>'
+                    )
+                return html
+
             rows_html = ""
             for i, (_, row) in enumerate(kw.iterrows()):
                 color = PRODUCT_COLORS.get(row["product"], TEXT_DIM)
+                top_kw = row.get("top_keyword", "")
+                top_kws = row.get("top_keywords", "")
                 rows_html += tr(
-                    td(f'<span style="color:{TEXT_MUT};">{i+1}</span>') +
-                    f'<td style="padding:10px 12px;font-weight:700;color:{color};">{row["product"]}</td>' +
-                    td(row["top_keyword"]) +
+                    f'<td style="padding:10px 12px;font-weight:700;color:{color};white-space:nowrap;">{row["product"]}</td>' +
+                    f'<td style="padding:10px 14px;max-width:340px;">{keyword_tags(top_kws, top_kw)}</td>' +
                     f'<td style="padding:10px 12px;">{progress_bar_cell(row["clicks"], max_kw, color)}</td>' +
                     td_num(f'{row["ctr"]}%') + td_num(str(row["pos"])),
                     i,
                 )
             components.html(
-                html_table(rows_html, ["#", "Продукт", "Ключове слово", "Кліки", "CTR %", "Позиція"],
-                           ["40px","120px","","200px","80px","80px"]),
-                height=max(200, len(kw) * 54 + 60), scrolling=False,
+                html_table(rows_html, ["Продукт", "Запити (топ-5)", "Кліки", "CTR %", "Позиція"],
+                           ["120px", "", "200px", "80px", "80px"]),
+                height=max(200, len(kw) * 60 + 60), scrolling=False,
             )
 
         # ── Всі запити ─────────────────────────────────────────────────────────
