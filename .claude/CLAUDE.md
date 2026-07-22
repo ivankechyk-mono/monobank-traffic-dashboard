@@ -12,8 +12,15 @@ Python ETL pipeline що щодня вичитує метрики трафіку
 1. `planning/STATE.md` — де зупинились і що відкрито
 2. `planning/TASKS.md` — поточна фаза і наступна задача
 3. `planning/SPEC.md` — acceptance criteria для поточної story
+4. `planning/SHEETS_SCHEMA.md` — точна схема кожного аркуша: колонки, типи, звідки, ключі upsert
 
 Тільки після цього виконуй команди або пиши код.
+
+## Правило перевірки таблиць
+Перед будь-якими змінами в pipeline або коннекторах:
+1. Звір фактичні колонки DataFrame з `planning/SHEETS_SCHEMA.md`
+2. Після запуску pipeline перевір: `ws.get_all_values()[0]` == очікувані колонки зі схеми
+3. Якщо колонки розходяться — спочатку виправ, потім записуй дані
 
 ## Tech Stack
 - **Python 3.11+** — весь backend

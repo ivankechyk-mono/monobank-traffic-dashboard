@@ -36,7 +36,7 @@
 - [x] T012 [P1][S1.3] `loaders/sheets.py` — `upsert_weekly_snapshot(df, tab_name)` з автоочисткою старших за 40 тижнів
 - [x] T013 [P1][S1.4] ~~Міграція БД~~ — не потрібно, використовуємо Google Sheets
 - [x] T014 [P1][S1.5] `scripts/run_pipeline.py` — оркестратор; запускається щотижня через GitHub Actions
-- [ ] T015 [P1][S1.6] Unit-тести для `connectors/ga4.py` і `transforms/traffic.py` з mock GA4 відповідями; покриття ≥ 80%  `tests/unit/test_ga4.py`, `tests/unit/test_traffic.py`
+- [x] T015 [P1][S1.6] Unit-тести для `connectors/ga4.py` і `transforms/traffic.py` з mock GA4 відповідями; покриття ≥ 80%  `tests/unit/test_traffic.py` — 35 тестів, 84% coverage
 - [ ] T016 [P1][S1.7] Looker Studio: підключити GA4 як data source; базовий звіт "Сесії за каналом на /business/*" з таблицею (Канал, Сесії, Користувачі, %) і date range picker  *(Looker Studio — зовнішній ресурс, URL у README)*
 - [ ] T017 [P1][S1.8] `crontab.example` з записом `0 6 * * * python scripts/run_pipeline.py --date yesterday`; документація запуску вручну  `crontab.example`
 
