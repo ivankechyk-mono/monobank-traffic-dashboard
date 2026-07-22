@@ -214,10 +214,17 @@ def _get_gspread_client():
         creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
         return gspread.authorize(creds)
 
-    # fallback: локальний OAuth token (розробка)
-    from src.connectors.ga4 import _get_credentials
-    creds = _get_credentials()
-    return gspread.authorize(creds)
+    # локальний OAuth token (розробка)
+    token_path = "token.json"
+    if os.path.exists(token_path):
+        from src.connectors.ga4 import _get_credentials
+        creds = _get_credentials()
+        return gspread.authorize(creds)
+
+    raise RuntimeError(
+        "Не знайдено credentials. "
+        "Додай [gcp_service_account] в Streamlit Secrets або GOOGLE_SERVICE_ACCOUNT_JSON в env."
+    )
 
 @st.cache_data(ttl=900, show_spinner=False)
 def load_data():
