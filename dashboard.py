@@ -453,9 +453,7 @@ with info_col:
         prev_end   = prev_end_dt.date()
         st.markdown(
             f'<div style="font-size:0.78rem;color:{TEXT_DIM};padding-top:10px;">'
-            f'Порівнює <b style="color:{TEXT};">{d_start.strftime("%d.%m")} – {d_end.strftime("%d.%m.%Y")}</b>'
-            f' з таким же попереднім періодом: '
-            f'<b style="color:{TEXT_DIM};">{prev_start.strftime("%d.%m")} – {prev_end.strftime("%d.%m.%Y")}</b>'
+            f'▲ vs <b style="color:{TEXT_DIM};">{prev_start.strftime("%d.%m")} – {prev_end.strftime("%d.%m.%Y")}</b>'
             f'</div>',
             unsafe_allow_html=True,
         )
@@ -480,6 +478,7 @@ with tab_overview:
     gf = filt(gsc,     sel_products, d_start, d_end)
     af = filt(ads,     sel_products, d_start, d_end)
     mf = filt(meta,    sel_products, d_start, d_end)
+    ef = filt(eng,     sel_products, d_start, d_end)
 
     sessions_cur    = int(tf["sessions"].sum())
     organic_cur     = int(gf["total_clicks"].sum())
@@ -519,16 +518,44 @@ with tab_overview:
         trend = tf.groupby(["period", "product"], as_index=False)["sessions"].sum()
         trend = trend[trend["sessions"] > 0]
 
+        # попередній період для графіку
+        trend_prev = pd.DataFrame()
+        if compare:
+            tf_p = filt(traffic, sel_products, prev_start, prev_end)
+            if not tf_p.empty:
+                if granularity == "Місяць":
+                    tf_p["period"] = tf_p["week_start"].dt.to_period("M").dt.to_timestamp()
+                else:
+                    tf_p["period"] = tf_p["week_start"]
+                # зсуваємо дати попереднього до поточного для накладання на той же графік
+                offset = pd.Timestamp(d_start) - pd.Timestamp(prev_start)
+                tf_p["period"] = tf_p["period"] + offset
+                trend_prev = tf_p.groupby(["period", "product"], as_index=False)["sessions"].sum()
+                trend_prev = trend_prev[trend_prev["sessions"] > 0]
+
         fig = go.Figure()
-        for product in trend.groupby("product")["sessions"].sum().sort_values(ascending=False).index:
+        products_ordered = trend.groupby("product")["sessions"].sum().sort_values(ascending=False).index
+        for product in products_ordered:
+            color = PRODUCT_COLORS.get(product, "#6b7280")
             d = trend[trend["product"] == product].sort_values("period")
             fig.add_trace(go.Scatter(
                 x=d["period"], y=d["sessions"], name=product,
                 mode="lines+markers",
-                line=dict(color=PRODUCT_COLORS.get(product, "#6b7280"), width=2),
+                line=dict(color=color, width=2),
                 marker=dict(size=5),
                 hovertemplate=f"<b>{product}</b><br>%{{x|%d.%m.%Y}}<br>Сесії: %{{y:,}}<extra></extra>",
             ))
+            if not trend_prev.empty and product in trend_prev["product"].values:
+                dp = trend_prev[trend_prev["product"] == product].sort_values("period")
+                fig.add_trace(go.Scatter(
+                    x=dp["period"], y=dp["sessions"],
+                    name=f"{product} (пред.)",
+                    mode="lines",
+                    line=dict(color=color, width=1.5, dash="dot"),
+                    opacity=0.45,
+                    showlegend=False,
+                    hovertemplate=f"<b>{product} (пред.)</b><br>%{{x|%d.%m.%Y}}<br>Сесії: %{{y:,}}<extra></extra>",
+                ))
 
         fig.update_layout(height=300, **PLOTLY_LAYOUT)
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
@@ -537,7 +564,7 @@ with tab_overview:
 
     # Таблиця по продуктах
     st.markdown(f'<div class="sec-head">По продуктах</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="sec-sub">Сесії · Organic кліки · Рекламний бюджет · Тренд</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="sec-sub">Сесії · Organic · CTR · Позиція · Реклама · Відмови · Тренд</div>', unsafe_allow_html=True)
 
     if not tf.empty:
         rows_data = []
@@ -546,19 +573,38 @@ with tab_overview:
             gp  = gf[gf["product"] == p] if not gf.empty and "product" in gf.columns else pd.DataFrame()
             ap  = af[af["product"] == p] if not af.empty and "product" in af.columns else pd.DataFrame()
             mp  = mf[mf["product"] == p] if not mf.empty and "product" in mf.columns else pd.DataFrame()
+            ep  = ef[ef["product"] == p] if not ef.empty and "product" in ef.columns else pd.DataFrame()
             sessions = int(pf["sessions"].sum()) if not pf.empty else 0
             if sessions == 0 and gp.empty and ap.empty and mp.empty:
                 continue
             organic  = int(gp["total_clicks"].sum()) if not gp.empty else 0
+            ctr      = float(gp["avg_ctr"].mean()) if not gp.empty and "avg_ctr" in gp.columns else None
+            position = float(gp["avg_position"].mean()) if not gp.empty and "avg_position" in gp.columns else None
             ad_spend = (float(ap["total_cost_uah"].sum()) if not ap.empty else 0) + \
                        (float(mp["spend"].sum()) if not mp.empty else 0)
+            bounce   = float(ep["bounce_rate"].mean()) if not ep.empty and "bounce_rate" in ep.columns and p not in SPA_PRODUCTS else None
             spark_vals = pf.groupby("week_start")["sessions"].sum().sort_index().values if not pf.empty else []
-            rows_data.append({"product": p, "sessions": sessions,
-                               "organic": organic, "ad_spend": ad_spend, "spark": spark_vals})
+            rows_data.append({"product": p, "sessions": sessions, "organic": organic,
+                               "ctr": ctr, "position": position,
+                               "ad_spend": ad_spend, "bounce": bounce, "spark": spark_vals})
 
         rows_data.sort(key=lambda r: r["sessions"], reverse=True)
         max_sess  = max((r["sessions"] for r in rows_data), default=1)
         max_org   = max((r["organic"]  for r in rows_data), default=1)
+
+        def fmt_ctr(v):
+            if v is None: return f'<span style="color:{TEXT_MUT}">—</span>'
+            return f'<span style="color:{TEXT}">{v:.1f}%</span>'
+
+        def fmt_pos(v):
+            if v is None: return f'<span style="color:{TEXT_MUT}">—</span>'
+            color = GREEN if v <= 3 else (TEXT if v <= 10 else TEXT_DIM)
+            return f'<span style="color:{color};font-weight:600">{v:.1f}</span>'
+
+        def fmt_bounce(v):
+            if v is None: return f'<span style="color:{TEXT_MUT}">SPA</span>'
+            color = GREEN if v < 40 else (TEXT if v < 65 else RED)
+            return f'<span style="color:{color}">{v:.0f}%</span>'
 
         rows_html = ""
         for i, r in enumerate(rows_data):
@@ -568,13 +614,16 @@ with tab_overview:
                 f'<td style="padding:10px 12px;font-weight:700;color:{color};">{r["product"]}{spa}</td>'
                 f'<td style="padding:10px 12px;">{progress_bar_cell(r["sessions"], max_sess, color)}</td>'
                 f'<td style="padding:10px 12px;">{progress_bar_cell(r["organic"], max_org, GREEN)}</td>'
+                f'<td style="padding:10px 12px;text-align:center;">{fmt_ctr(r["ctr"])}</td>'
+                f'<td style="padding:10px 12px;text-align:center;">{fmt_pos(r["position"])}</td>'
                 f'<td style="padding:10px 12px;text-align:right;color:{TEXT};white-space:nowrap;">{fmt_uah(r["ad_spend"])}</td>'
+                f'<td style="padding:10px 12px;text-align:center;">{fmt_bounce(r["bounce"])}</td>'
                 f'<td style="padding:10px 12px;text-align:center;">{sparkline(r["spark"], color)}</td>',
                 i,
             )
         body = html_table(rows_html,
-                          ["Продукт", "Сесії", "Organic кліки", "Реклама ₴", "Тренд"],
-                          ["140px", "220px", "220px", "", "100px"])
+                          ["Продукт", "Сесії", "Organic", "CTR", "Позиція", "Реклама ₴", "Відмови", "Тренд"],
+                          ["140px", "200px", "160px", "70px", "80px", "110px", "80px", "100px"])
         components.html(body, height=max(200, len(rows_data) * 54 + 60), scrolling=False)
 
 
