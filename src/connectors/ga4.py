@@ -1,7 +1,9 @@
 import os
 import glob
+import json
 import sys
 from google.oauth2.credentials import Credentials
+from google.oauth2 import service_account
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.analytics.data_v1beta import BetaAnalyticsDataClient
 from google.analytics.data_v1beta.types import (
@@ -21,6 +23,13 @@ SCOPES = [
 
 
 def _get_credentials(token_path: str = "token.json") -> Credentials:
+    # Service account via env (CI/CD і Streamlit Cloud)
+    sa_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+    if sa_json:
+        info = json.loads(sa_json)
+        return service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
+
+    # Fallback: локальний OAuth token (розробка)
     creds = None
     if os.path.exists(token_path):
         creds = Credentials.from_authorized_user_file(token_path, SCOPES)
