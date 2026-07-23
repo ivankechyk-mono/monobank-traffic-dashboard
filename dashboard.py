@@ -1120,39 +1120,49 @@ with tab_eng:
         st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
         col_l, col_r = st.columns(2)
 
+        layout_br = {**PLOTLY_LAYOUT}
+        layout_br["xaxis"] = dict(showgrid=False, showticklabels=False)
+        layout_br["yaxis"] = dict(showgrid=False, tickfont=dict(size=11, color=TEXT))
+
+        br = non_spa.groupby("product", as_index=False)["bounce_rate"].mean().round(1)
+        br = br[br["bounce_rate"] > 0].sort_values("bounce_rate")
+        dur = non_spa.groupby("product", as_index=False)["avg_session_duration"].mean()
+        dur["minutes"] = (dur["avg_session_duration"] / 60).round(1)
+        dur = dur[dur["minutes"] > 0].sort_values("minutes")
+
+        _multi_product = len(br) >= 2
+
         with col_l:
             st.markdown(f'<div class="sec-head">Відсоток відмов</div>', unsafe_allow_html=True)
             st.caption("Людина зайшла і одразу пішла. Менше = краще.")
-            br = non_spa.groupby("product", as_index=False)["bounce_rate"].mean().round(1)
-            br = br[br["bounce_rate"] > 0].sort_values("bounce_rate")
-            fig = go.Figure(go.Bar(
-                x=br["bounce_rate"], y=br["product"], orientation="h",
-                marker_color=[PRODUCT_COLORS.get(p, "#6b7280") for p in br["product"]],
-                text=[f"{v:.1f}%" for v in br["bounce_rate"]],
-                textposition="outside", textfont=dict(color="#9ca3af", size=10),
-            ))
-            fig.add_vline(x=40, line_dash="dot", line_color=RED,
-                          annotation_text="⚠️ 40%", annotation_font_color=RED)
-            layout_br = {**PLOTLY_LAYOUT}
-            layout_br["xaxis"] = dict(showgrid=False, showticklabels=False)
-            layout_br["yaxis"] = dict(showgrid=False, tickfont=dict(size=11, color=TEXT))
-            fig.update_layout(height=240, **layout_br)
-            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+            if _multi_product:
+                fig = go.Figure(go.Bar(
+                    x=br["bounce_rate"], y=br["product"], orientation="h",
+                    marker_color=[PRODUCT_COLORS.get(p, "#6b7280") for p in br["product"]],
+                    text=[f"{v:.1f}%" for v in br["bounce_rate"]],
+                    textposition="outside", textfont=dict(color="#9ca3af", size=10),
+                ))
+                fig.add_vline(x=40, line_dash="dot", line_color=RED,
+                              annotation_text="⚠️ 40%", annotation_font_color=RED)
+                fig.update_layout(height=240, **layout_br)
+                st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+            else:
+                st.info("Оберіть кілька продуктів у фільтрі щоб порівняти")
 
         with col_r:
             st.markdown(f'<div class="sec-head">Тривалість сесії (хв)</div>', unsafe_allow_html=True)
             st.caption("Скільки часу проводить користувач. Більше = краще.")
-            dur = non_spa.groupby("product", as_index=False)["avg_session_duration"].mean()
-            dur["minutes"] = (dur["avg_session_duration"] / 60).round(1)
-            dur = dur[dur["minutes"] > 0].sort_values("minutes")
-            fig2 = go.Figure(go.Bar(
-                x=dur["minutes"], y=dur["product"], orientation="h",
-                marker_color=[PRODUCT_COLORS.get(p, "#6b7280") for p in dur["product"]],
-                text=[f"{v:.1f} хв" for v in dur["minutes"]],
-                textposition="outside", textfont=dict(color="#9ca3af", size=10),
-            ))
-            fig2.update_layout(height=240, **layout_br)
-            st.plotly_chart(fig2, use_container_width=True, config={"displayModeBar": False})
+            if _multi_product:
+                fig2 = go.Figure(go.Bar(
+                    x=dur["minutes"], y=dur["product"], orientation="h",
+                    marker_color=[PRODUCT_COLORS.get(p, "#6b7280") for p in dur["product"]],
+                    text=[f"{v:.1f} хв" for v in dur["minutes"]],
+                    textposition="outside", textfont=dict(color="#9ca3af", size=10),
+                ))
+                fig2.update_layout(height=240, **layout_br)
+                st.plotly_chart(fig2, use_container_width=True, config={"displayModeBar": False})
+            else:
+                st.info("Оберіть кілька продуктів у фільтрі щоб порівняти")
 
         st.markdown(f'<div class="sec-head">Динаміка відмов по тижнях</div>', unsafe_allow_html=True)
         br_w = non_spa.groupby(["week_start","product"], as_index=False)["bounce_rate"].mean().round(1)
