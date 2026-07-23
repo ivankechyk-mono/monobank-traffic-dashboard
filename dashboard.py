@@ -728,11 +728,26 @@ with tab_traffic:
                 fig2.update_layout(height=300, **layout2)
                 st.plotly_chart(fig2, use_container_width=True, config={"displayModeBar": False})
 
-            st.markdown(f'<div class="sec-head">Продукт × канал</div>', unsafe_allow_html=True)
-            pivot = tf.groupby(["product", "channel"])["sessions"].sum().unstack(fill_value=0)
-            pivot["Всього"] = pivot.sum(axis=1)
-            pivot = pivot.sort_values("Всього", ascending=False)
-            st.dataframe(pivot.style.format("{:,.0f}"), use_container_width=True)
+            tbl_mode = st.radio(
+                "Таблиця", ["Зведено", "По тижнях"],
+                horizontal=True, label_visibility="collapsed",
+                key="traffic_table_mode",
+            )
+            if tbl_mode == "Зведено":
+                st.markdown(f'<div class="sec-head">Продукт × канал</div>', unsafe_allow_html=True)
+                pivot = tf.groupby(["product", "channel"])["sessions"].sum().unstack(fill_value=0)
+                pivot["Всього"] = pivot.sum(axis=1)
+                pivot = pivot.sort_values("Всього", ascending=False)
+                st.dataframe(pivot.style.format("{:,.0f}"), use_container_width=True)
+            else:
+                st.markdown(f'<div class="sec-head">Сесії по тижнях</div>', unsafe_allow_html=True)
+                wt = tf.groupby(["week_start", "product"], as_index=False)["sessions"].sum()
+                wt_pivot = wt.pivot(index="week_start", columns="product", values="sessions").fillna(0).astype(int)
+                wt_pivot.index = wt_pivot.index.strftime("%d.%m.%Y")
+                wt_pivot.index.name = "Тиждень"
+                wt_pivot["Всього"] = wt_pivot.sum(axis=1)
+                wt_pivot = wt_pivot.sort_index(ascending=False)
+                st.dataframe(wt_pivot.style.format("{:,.0f}"), use_container_width=True)
 
             if unass > 3:
                 st.markdown(f'<div class="note note-warn">⚠️ Unassigned {unass:.1f}% — посилання з Telegram/Viber, мобільний додаток, редіректи без UTM. Норма &lt;5%.</div>', unsafe_allow_html=True)
