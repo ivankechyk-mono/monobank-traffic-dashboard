@@ -478,8 +478,8 @@ st.markdown(f'<div class="divider"></div>', unsafe_allow_html=True)
 # ══════════════════════════════════════════════════════════════════════════════
 # ВКЛАДКИ
 # ══════════════════════════════════════════════════════════════════════════════
-tabs = st.tabs(["Огляд", "Трафік", "Органіка", "Реклама", "Поведінка", "Матриця"])
-tab_overview, tab_traffic, tab_organic, tab_paid, tab_eng, tab_matrix = tabs
+tabs = st.tabs(["Огляд", "Трафік", "Органіка", "Реклама", "Воронка", "Поведінка", "Матриця"])
+tab_overview, tab_traffic, tab_organic, tab_paid, tab_funnel, tab_eng, tab_matrix = tabs
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -598,12 +598,14 @@ with tab_overview:
 
     if not tf.empty:
         rows_data = []
+        cp = filt(conv, sel_products, d_start, d_end) if not conv.empty else pd.DataFrame()
         for p in all_products:
             pf  = tf[tf["product"] == p] if "product" in tf.columns else pd.DataFrame()
             gp  = gf[gf["product"] == p] if not gf.empty and "product" in gf.columns else pd.DataFrame()
             ap  = af[af["product"] == p] if not af.empty and "product" in af.columns else pd.DataFrame()
             mp  = mf[mf["product"] == p] if not mf.empty and "product" in mf.columns else pd.DataFrame()
             ep  = ef[ef["product"] == p] if not ef.empty and "product" in ef.columns else pd.DataFrame()
+            cvp = cp[cp["product"] == p] if not cp.empty and "product" in cp.columns else pd.DataFrame()
             sessions = int(pf["sessions"].sum()) if not pf.empty else 0
             if sessions == 0 and gp.empty and ap.empty and mp.empty:
                 continue
@@ -615,9 +617,15 @@ with tab_overview:
             bounce   = float(ep["bounce_rate"].mean()) if not ep.empty and "bounce_rate" in ep.columns and p not in SPA_PRODUCTS else None
             top_kw   = gp.sort_values("total_clicks", ascending=False)["top_keyword"].iloc[0] if not gp.empty and "top_keyword" in gp.columns else ""
             spark_vals = pf.groupby("week_start")["sessions"].sum().sort_index().values if not pf.empty else []
+            p_successes = int(cvp["successes"].sum()) if not cvp.empty and "successes" in cvp.columns else 0
+            p_starts    = int(cvp["starts"].sum())    if not cvp.empty and "starts"    in cvp.columns else 0
+            p_cr   = round(p_successes / p_starts * 100, 1) if p_starts > 0 else None
+            p_ads  = float(ap["total_cost_uah"].sum()) if not ap.empty else 0
+            p_cpl  = round(p_ads / p_successes, 0) if p_successes > 0 and p_ads > 0 else None
             rows_data.append({"product": p, "sessions": sessions, "organic": organic,
                                "ctr": ctr, "position": position, "top_kw": top_kw,
-                               "ad_spend": ad_spend, "bounce": bounce, "spark": spark_vals})
+                               "ad_spend": ad_spend, "bounce": bounce, "spark": spark_vals,
+                               "cr": p_cr, "cpl": p_cpl})
 
         rows_data.sort(key=lambda r: r["sessions"], reverse=True)
         max_sess  = max((r["sessions"] for r in rows_data), default=1)
@@ -634,8 +642,18 @@ with tab_overview:
 
         def fmt_bounce(v):
             if v is None: return f'<span style="color:{TEXT_MUT}">SPA</span>'
-            color = GREEN if v < 40 else (TEXT if v < 65 else RED)
-            return f'<span style="color:{color}">{v:.0f}%</span>'
+            color = GREEN if v < 25 else (ORANGE if v < 45 else RED)
+            return f'<span style="color:{color};font-weight:600">{v:.0f}%</span>'
+
+        def fmt_cr(v):
+            if v is None: return f'<span style="color:{TEXT_MUT}">—</span>'
+            color = GREEN if v >= 20 else (ORANGE if v >= 10 else RED)
+            return f'<span style="color:{color};font-weight:600">{v:.1f}%</span>'
+
+        def fmt_cpl(v):
+            if v is None: return f'<span style="color:{TEXT_MUT}">—</span>'
+            color = GREEN if v < 600 else (ORANGE if v < 1200 else RED)
+            return f'<span style="color:{color};font-weight:600">₴{v:,.0f}</span>'
 
         rows_html = ""
         for i, r in enumerate(rows_data):
@@ -650,13 +668,15 @@ with tab_overview:
                 f'<td style="padding:10px 12px;text-align:center;">{fmt_ctr(r["ctr"])}</td>'
                 f'<td style="padding:10px 12px;text-align:center;">{fmt_pos(r["position"])}</td>'
                 f'<td style="padding:10px 12px;text-align:right;color:{TEXT};white-space:nowrap;">{fmt_uah(r["ad_spend"])}</td>'
+                f'<td style="padding:10px 12px;text-align:center;">{fmt_cr(r["cr"])}</td>'
+                f'<td style="padding:10px 12px;text-align:center;">{fmt_cpl(r["cpl"])}</td>'
                 f'<td style="padding:10px 12px;text-align:center;">{fmt_bounce(r["bounce"])}</td>'
                 f'<td style="padding:10px 12px;text-align:center;">{sparkline(r["spark"], color)}</td>',
                 i,
             )
         body = html_table(rows_html,
-                          ["Продукт", "Сесії", "Organic", "Топ запит", "CTR", "Позиція", "Реклама ₴", "Відмови", "Тренд"],
-                          ["130px", "180px", "140px", "160px", "65px", "75px", "100px", "75px", "90px"])
+                          ["Продукт", "Сесії", "Organic", "Топ запит", "CTR", "Позиція", "Реклама ₴", "CR", "CPL", "Відмови", "Тренд"],
+                          ["120px", "160px", "130px", "150px", "60px", "70px", "95px", "60px", "90px", "70px", "85px"])
         components.html(body, height=max(200, len(rows_data) * 54 + 60), scrolling=False)
 
 
@@ -794,6 +814,116 @@ with tab_traffic:
                 )
             else:
                 st.info("Дані top_page недоступні")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ВОРОНКА
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_funnel:
+    cf_f = filt(conv, sel_products, d_start, d_end)
+    tf_f = filt(traffic, sel_products, d_start, d_end)
+
+    total_sessions_f = int(tf_f["sessions"].sum()) if not tf_f.empty else 0
+    total_starts_f   = int(cf_f["starts"].sum())    if not cf_f.empty else 0
+    total_success_f  = int(cf_f["successes"].sum()) if not cf_f.empty else 0
+    cr_s2a = round(total_starts_f   / total_sessions_f * 100, 2) if total_sessions_f > 0 else 0
+    cr_a2s = round(total_success_f  / total_starts_f   * 100, 1) if total_starts_f   > 0 else 0
+    cr_total = round(total_success_f / total_sessions_f * 100, 2) if total_sessions_f > 0 else 0
+
+    st.markdown(f'<div class="sec-head">Воронка онбордингу</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="sec-sub">{d_start.strftime("%d.%m.%Y")} — {d_end.strftime("%d.%m.%Y")}</div>', unsafe_allow_html=True)
+
+    # Funnel chart
+    if total_sessions_f > 0:
+        funnel_labels = ["Сесії сайту", "Старти онбордингу", "Відкриті рахунки"]
+        funnel_values = [total_sessions_f, total_starts_f, total_success_f]
+        funnel_colors = [BLUE, ORANGE, GREEN]
+
+        fig_f = go.Figure(go.Funnel(
+            y=funnel_labels,
+            x=funnel_values,
+            textposition="inside",
+            textinfo="value+percent initial",
+            opacity=0.9,
+            marker=dict(color=funnel_colors),
+            connector=dict(line=dict(color=BORDER, width=2)),
+            textfont=dict(color="#fff", size=14),
+        ))
+        fig_f.update_layout(
+            height=320,
+            margin=dict(l=0, r=0, t=10, b=10),
+            paper_bgcolor=BG2, plot_bgcolor=BG2,
+            font=dict(color=TEXT, size=12),
+        )
+        st.plotly_chart(fig_f, use_container_width=True, config={"displayModeBar": False})
+
+        # CR карточки під воронкою
+        fa1, fa2, fa3, fa4 = st.columns(4)
+        with fa1: kpi_card("Сесій",            fmt(total_sessions_f), "", "всього відвідувань")
+        with fa2: kpi_card("Старти онбордингу", fmt(total_starts_f),  "", f"CR з сесій: {cr_s2a}%")
+        with fa3: kpi_card("Відкрили рахунок",  fmt(total_success_f), "", f"CR зі старту: {cr_a2s}%")
+        with fa4: kpi_card("Загальний CR",       f"{cr_total}%",       "", "сесія → відкритий рахунок")
+    else:
+        st.info("Немає даних за обраний період")
+
+    # Воронка по продуктах
+    if not cf_f.empty:
+        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+        st.markdown(f'<div class="sec-head">По продуктах</div>', unsafe_allow_html=True)
+
+        prod_rows = []
+        for p in cf_f["product"].unique():
+            pp = cf_f[cf_f["product"] == p]
+            starts = int(pp["starts"].sum())
+            success = int(pp["successes"].sum())
+            cr = round(success / starts * 100, 1) if starts > 0 else 0
+            ap_p = filt(ads, [p], d_start, d_end)
+            spend = float(ap_p["total_cost_uah"].sum()) if not ap_p.empty else 0
+            cpl = round(spend / success, 0) if success > 0 and spend > 0 else None
+            prod_rows.append({"product": p, "starts": starts, "success": success, "cr": cr, "spend": spend, "cpl": cpl})
+
+        prod_rows.sort(key=lambda r: r["success"], reverse=True)
+        max_st = max((r["starts"]  for r in prod_rows), default=1)
+        max_su = max((r["success"] for r in prod_rows), default=1)
+
+        rows_html = ""
+        for i, r in enumerate(prod_rows):
+            color = PRODUCT_COLORS.get(r["product"], TEXT_DIM)
+            cr_color = GREEN if r["cr"] >= 20 else (ORANGE if r["cr"] >= 10 else RED)
+            cpl_str = f'<span style="color:{GREEN if r["cpl"] and r["cpl"]<600 else (ORANGE if r["cpl"] and r["cpl"]<1200 else RED)};font-weight:600">₴{r["cpl"]:,.0f}</span>' if r["cpl"] else f'<span style="color:{TEXT_MUT}">—</span>'
+            rows_html += tr(
+                f'<td style="padding:10px 12px;font-weight:700;color:{color};">{r["product"]}</td>'
+                f'<td style="padding:10px 12px;">{progress_bar_cell(r["starts"], max_st, ORANGE)}</td>'
+                f'<td style="padding:10px 12px;">{progress_bar_cell(r["success"], max_su, GREEN)}</td>'
+                f'<td style="padding:10px 12px;text-align:center;"><span style="color:{cr_color};font-weight:600">{r["cr"]:.1f}%</span></td>'
+                f'<td style="padding:10px 12px;text-align:right;color:{TEXT};">{fmt_uah(r["spend"])}</td>'
+                f'<td style="padding:10px 12px;text-align:center;">{cpl_str}</td>',
+                i,
+            )
+        body_f = html_table(rows_html,
+                            ["Продукт", "Старти онбордингу", "Відкрили рахунок", "CR", "Витрати Google Ads", "CPL"],
+                            ["130px", "200px", "200px", "70px", "160px", "100px"])
+        components.html(body_f, height=max(200, len(prod_rows) * 54 + 60), scrolling=False)
+
+        # Тижнева динаміка воронки
+        if not cf_f.empty and "week_start" in cf_f.columns:
+            st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+            st.markdown(f'<div class="sec-head">Динаміка по тижнях</div>', unsafe_allow_html=True)
+            wf = cf_f.groupby("week_start", as_index=False)[["starts","successes"]].sum()
+            wf = wf.sort_values("week_start")
+            fig_fw = go.Figure()
+            fig_fw.add_trace(go.Bar(
+                x=wf["week_start"], y=wf["starts"], name="Старти",
+                marker_color=ORANGE, opacity=0.7,
+                hovertemplate="<b>Старти</b>: %{y:,}<extra></extra>",
+            ))
+            fig_fw.add_trace(go.Bar(
+                x=wf["week_start"], y=wf["successes"], name="Відкриття",
+                marker_color=GREEN,
+                hovertemplate="<b>Відкриття</b>: %{y:,}<extra></extra>",
+            ))
+            fig_fw.update_layout(height=220, barmode="group", **PLOTLY_LAYOUT)
+            st.plotly_chart(fig_fw, use_container_width=True, config={"displayModeBar": False})
 
 
 # ══════════════════════════════════════════════════════════════════════════════
