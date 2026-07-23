@@ -422,6 +422,12 @@ with fc2:
         d_end   = data_max
         d_start = (pd.Timestamp(data_max) - pd.Timedelta(weeks=n_weeks - 1)).date()
         period_label = f"Останні {n_weeks} тижнів"
+        st.markdown(
+            f'<div style="font-size:0.75rem;color:{TEXT_DIM};margin-top:-6px;">'
+            f'{pd.Timestamp(d_start).strftime("%d.%m.%Y")} – {pd.Timestamp(d_end).strftime("%d.%m.%Y")}'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
     else:
         st.markdown(f'<div class="filter-label">Місяць</div>', unsafe_allow_html=True)
         if all_month_labels:
@@ -557,7 +563,7 @@ with tab_overview:
                     hovertemplate=f"<b>{product} (пред.)</b><br>%{{x|%d.%m.%Y}}<br>Сесії: %{{y:,}}<extra></extra>",
                 ))
 
-        fig.update_layout(height=300, **PLOTLY_LAYOUT)
+        fig.update_layout(height=220, **PLOTLY_LAYOUT)
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
     st.markdown(f'<div class="divider"></div>', unsafe_allow_html=True)
@@ -1074,9 +1080,9 @@ with tab_eng:
     non_spa = ef[~ef["product"].isin(SPA_PRODUCTS)] if not ef.empty else pd.DataFrame()
 
     st.markdown(
-        f'<div class="note note-info">ℹ️ Для <b>ЮО, ЗП-проект, Аванс</b> — bounce rate та тривалість = 0. '
-        f'Це SPA-продукти в кабінеті web.monobank.ua: GA4 не генерує page_view, '
-        f'тому поведінкові метрики методологічно недоступні.</div>',
+        f'<div class="note note-info">ℹ️ Дані лише для <b>Еквайринг і ФОП</b> (лендинги). '
+        f'<b>ЮО, ЗП-проект, Аванс, Пакети, Частинами</b> — це SPA всередині web.monobank.ua: '
+        f'GA4 не бачить окремих сторінок, тому bounce rate і тривалість технічно неможливо виміряти.</div>',
         unsafe_allow_html=True,
     )
 
@@ -1171,11 +1177,12 @@ with tab_matrix:
                 <div style="background:{BG2};border:1px solid {BORDER};border-top:3px solid {c};
                             border-radius:8px;padding:14px 16px;margin-bottom:12px;">
                     <div style="font-weight:700;font-size:0.88rem;color:{TEXT};">{r['product']}{spa}</div>
-                    <div style="font-size:1.5rem;font-weight:700;color:{c};margin:6px 0;">{fmt(r['sessions'])}</div>
+                    <div style="font-size:1.5rem;font-weight:700;color:{c};margin:6px 0;">{"SPA — немає" if r["product"] in SPA_PRODUCTS and r["sessions"] == 0 else fmt(r["sessions"])}</div>
                     <div style="font-size:0.75rem;color:{TEXT_DIM};line-height:1.8;">
                         🔍 {fmt(r['organic_clicks'])} organic<br>
                         💰 {fmt_uah(r['total_spend'])} реклама
                     </div>
+                    {"" if r["product"] not in SPA_PRODUCTS else f'<div style="font-size:0.68rem;color:{TEXT_MUT};margin-top:4px;">GA4-сесії SPA-продуктів не вимірюються</div>'}
                 </div>""", unsafe_allow_html=True)
 
         st.markdown(f'<div class="divider"></div>', unsafe_allow_html=True)
