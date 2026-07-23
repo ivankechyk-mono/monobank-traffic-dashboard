@@ -284,13 +284,18 @@ def delta_html(curr, prev):
     arrow = "↑" if pct >= 0 else "↓"
     return f'<span class="{cls}">{arrow} {abs(pct):.1f}% vs попередній</span>'
 
-def kpi_card(label, value, delta_html_str=""):
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-label">{label}</div>
-        <div class="kpi-value">{value}</div>
-        {f'<div>{delta_html_str}</div>' if delta_html_str else ''}
-    </div>""", unsafe_allow_html=True)
+def kpi_card(label, value, delta_html_str="", hint=""):
+    parts = [
+        f'<div class="kpi-card">',
+        f'<div class="kpi-label">{label}</div>',
+        f'<div class="kpi-value">{value}</div>',
+    ]
+    if delta_html_str:
+        parts.append(f'<div>{delta_html_str}</div>')
+    if hint:
+        parts.append(f'<div style="font-size:0.72rem;color:{TEXT_MUT};margin-top:2px;">{hint}</div>')
+    parts.append('</div>')
+    st.markdown("\n".join(parts), unsafe_allow_html=True)
 
 def filt(df, products, d_start, d_end):
     if df.empty: return df
@@ -504,10 +509,10 @@ with tab_overview:
         d1 = d2 = d3 = d4 = ""
 
     k1, k2, k3, k4 = st.columns(4)
-    with k1: kpi_card("Сесії (GA4)",       fmt(sessions_cur),    d1)
-    with k2: kpi_card("Кліки з Google",    fmt(organic_cur),     d2)
-    with k3: kpi_card("Покази в Google",   fmt(impressions_cur), d3)
-    with k4: kpi_card("Рекламний бюджет",  fmt_uah(ad_spend_cur), d4)
+    with k1: kpi_card("Сесії (GA4)",      fmt(sessions_cur),     d1, "відвідувань сайту · джерело GA4")
+    with k2: kpi_card("Кліки з Google",   fmt(organic_cur),      d2, "переходів з пошуку Google · джерело GSC")
+    with k3: kpi_card("Покази в Google",  fmt(impressions_cur),  d3, "разів сайт показався в пошуку · джерело GSC")
+    with k4: kpi_card("Рекламний бюджет", fmt_uah(ad_spend_cur), d4, "витрачено · Google Ads + Meta Ads")
 
     st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 
@@ -654,10 +659,10 @@ with tab_traffic:
         k1, k2, k3, k4 = st.columns(4)
         with k1:
             d = delta_html(total_s, int(filt(traffic, sel_products, prev_start, prev_end)["sessions"].sum())) if compare else ""
-            kpi_card("Сесії", fmt(total_s), d)
-        with k2: kpi_card("Користувачі", fmt(total_u))
+            kpi_card("Сесії", fmt(total_s), d, "відвідувань сайту · GA4")
+        with k2: kpi_card("Користувачі", fmt(total_u), "", "унікальних людей · GA4")
         with k3: kpi_card("Топ канал", top_ch, f'<span class="kpi-delta-neu">{top_pct:.0f}% трафіку</span>')
-        with k4: kpi_card("Unassigned", f"{unass:.1f}%", f'<span class="kpi-delta-neu">трафік без UTM</span>')
+        with k4: kpi_card("Unassigned", f"{unass:.1f}%", f'<span class="kpi-delta-neu">трафік без UTM</span>', "переходи без розмітки — не знаємо звідки")
 
         st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
@@ -774,13 +779,13 @@ with tab_organic:
         k1, k2, k3, k4 = st.columns(4)
         if compare:
             gp = filt(gsc, sel_products, prev_start, prev_end)
-            with k1: kpi_card("Кліки з Google",  fmt(total_clicks), delta_html(total_clicks, int(gp["total_clicks"].sum())))
-            with k2: kpi_card("Покази в Google", fmt(total_impr),   delta_html(total_impr,   int(gp["total_impressions"].sum())))
+            with k1: kpi_card("Кліки з Google",  fmt(total_clicks), delta_html(total_clicks, int(gp["total_clicks"].sum())), "переходів з пошуку · GSC")
+            with k2: kpi_card("Покази в Google", fmt(total_impr),   delta_html(total_impr,   int(gp["total_impressions"].sum())), "разів сайт з'явився в пошуку · GSC")
         else:
-            with k1: kpi_card("Кліки з Google",  fmt(total_clicks))
-            with k2: kpi_card("Покази в Google", fmt(total_impr))
-        with k3: kpi_card("CTR",      f"{wctr}%",   f'<span class="kpi-delta-neu">кліки / покази</span>')
-        with k4: kpi_card("Позиція",  f"{avg_pos}",  f'<span class="kpi-delta-neu">1 = перше місце</span>')
+            with k1: kpi_card("Кліки з Google",  fmt(total_clicks), "", "переходів з пошуку · GSC")
+            with k2: kpi_card("Покази в Google", fmt(total_impr),   "", "разів сайт з'явився в пошуку · GSC")
+        with k3: kpi_card("CTR",      f"{wctr}%",   f'<span class="kpi-delta-neu">кліки / покази</span>', "% людей що клікнули побачивши сайт")
+        with k4: kpi_card("Позиція",  f"{avg_pos}",  f'<span class="kpi-delta-neu">1 = перше місце</span>', "середня позиція в результатах пошуку")
 
         st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
         sub_o = st.tabs(["По продуктах", "Всі запити"])
@@ -957,10 +962,10 @@ with tab_paid:
     meta_clicks = int(mf["clicks"].sum())           if not mf.empty else 0
 
     k1, k2, k3, k4 = st.columns(4)
-    with k1: kpi_card("Google Ads бюджет", fmt_uah(ads_spend))
-    with k2: kpi_card("Meta Ads бюджет",   fmt_uah(meta_spend))
-    with k3: kpi_card("Google Ads кліки",  fmt(ads_clicks),  f'<span class="kpi-delta-neu">рекламні кліки</span>')
-    with k4: kpi_card("Meta кліки",        fmt(meta_clicks), f'<span class="kpi-delta-neu">App Opens + Link Clicks</span>')
+    with k1: kpi_card("Google Ads бюджет",  fmt_uah(ads_spend),  "", "витрачено на пошукову рекламу")
+    with k2: kpi_card("Meta Ads бюджет",    fmt_uah(meta_spend), "", "витрачено на рекламу в соцмережах")
+    with k3: kpi_card("Google Ads кліки",   fmt(ads_clicks),     f'<span class="kpi-delta-neu">рекламні кліки</span>', "кліки по платних оголошеннях")
+    with k4: kpi_card("Meta кліки",         fmt(meta_clicks),    f'<span class="kpi-delta-neu">App Opens + Link Clicks</span>', "≠ GA4 сесії, різна методологія")
 
     st.markdown(f'<div class="note note-info">ℹ️ Meta "кліки" = App Opens + Link Clicks — не порівнюй напряму з GA4 сесіями.</div>', unsafe_allow_html=True)
 
