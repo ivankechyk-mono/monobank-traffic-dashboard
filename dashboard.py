@@ -261,7 +261,8 @@ def load_data():
                    "sessions", "users", "bounce_rate",
                    "organic_clicks", "organic_impressions", "organic_ctr",
                    "paid_clicks", "paid_cost_uah", "meta_clicks", "meta_spend")
-    return traffic, gsc, eng, ads, meta, matrix
+    conv    = prep(sheet("conversions"),        "starts", "successes", "cr_pct")
+    return traffic, gsc, eng, ads, meta, matrix, conv
 
 
 # ── Хелпери ───────────────────────────────────────────────────────────────────
@@ -377,7 +378,7 @@ def td_num(content):
 # ── Завантаження ──────────────────────────────────────────────────────────────
 with st.spinner("Завантаження даних…"):
     try:
-        traffic, gsc, eng, ads, meta, matrix = load_data()
+        traffic, gsc, eng, ads, meta, matrix, conv = load_data()
     except Exception as e:
         st.error(f"Помилка завантаження: {e}")
         st.stop()
@@ -490,6 +491,7 @@ with tab_overview:
     af = filt(ads,     sel_products, d_start, d_end)
     mf = filt(meta,    sel_products, d_start, d_end)
     ef = filt(eng,     sel_products, d_start, d_end)
+    cf = filt(conv,    sel_products, d_start, d_end)
 
     sessions_cur    = int(tf["sessions"].sum())
     organic_cur     = int(gf["total_clicks"].sum())
@@ -508,11 +510,28 @@ with tab_overview:
     else:
         d1 = d2 = d3 = d4 = ""
 
+    ads_clicks_cur = int(af["total_clicks"].sum()) if not af.empty else 0
+    cpc_cur = round(float(af["total_cost_uah"].sum()) / ads_clicks_cur, 1) if ads_clicks_cur > 0 else 0
+
     k1, k2, k3, k4 = st.columns(4)
     with k1: kpi_card("Сесії (GA4)",      fmt(sessions_cur),     d1, "відвідувань сайту · джерело GA4")
     with k2: kpi_card("Кліки з Google",   fmt(organic_cur),      d2, "переходів з пошуку Google · джерело GSC")
-    with k3: kpi_card("Покази в Google",  fmt(impressions_cur),  d3, "разів сайт показався в пошуку · джерело GSC")
-    with k4: kpi_card("Рекламний бюджет", fmt_uah(ad_spend_cur), d4, "витрачено · Google Ads + Meta Ads")
+    with k3: kpi_card("Рекламний бюджет", fmt_uah(ad_spend_cur), d4, "витрачено · Google Ads + Meta Ads")
+    with k4: kpi_card("CPC (Google Ads)", f"₴{cpc_cur}", "", "середня ціна за рекламний клік")
+
+    # Рядок конверсій
+    if not cf.empty:
+        total_starts    = int(cf["starts"].sum())
+        total_successes = int(cf["successes"].sum())
+        cpl = round(float(af["total_cost_uah"].sum()) / total_successes, 0) if total_successes > 0 else 0
+        avg_cr = round(total_successes / total_starts * 100, 1) if total_starts > 0 else 0
+
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+        c1, c2, c3, c4 = st.columns(4)
+        with c1: kpi_card("Старти онбордингу", fmt(total_starts),    "", "людей почали відкриття рахунку · GA4")
+        with c2: kpi_card("Успішних відкриттів", fmt(total_successes), "", "рахунок відкрито · ФОП + ЮО + Аванс")
+        with c3: kpi_card("CR онбордингу",  f"{avg_cr}%",            "", "% що дійшли до кінця")
+        with c4: kpi_card("CPL (Google Ads)", fmt_uah(cpl),           "", "витрат на одне відкриття рахунку")
 
     st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 

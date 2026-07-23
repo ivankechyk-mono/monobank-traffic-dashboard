@@ -17,6 +17,7 @@ from src.connectors.google_ads import GoogleAdsConnector
 from src.transforms.traffic import (
     build_traffic_by_channel, aggregate_gsc_keywords,
     aggregate_ads_keywords, aggregate_engagement, aggregate_meta_ads,
+    aggregate_conversions,
 )
 from src.transforms.product_matrix import build_product_matrix
 from src.loaders.sheets import upsert_weekly_snapshot
@@ -58,6 +59,10 @@ def run_week(connector, gsc, meta, ads, sheet_id, creds, week):
     df_channel = connector.get_channel_traffic(date_range=(api_start, api_end))
     df_eng = connector.get_engagement_full(date_range=(api_start, api_end))
     df_events = connector.get_product_events(date_range=(api_start, api_end))
+
+    df_conv_raw = connector.get_conversions(date_range=(api_start, api_end))
+    df_conv = aggregate_conversions(df_conv_raw, disp_start)
+    _snap(df_conv, "conversions", creds, sheet_id, disp_start, disp_end)
 
     df_traffic = build_traffic_by_channel(df_channel, df_eng, disp_start, df_events)
     _snap(df_traffic, "traffic_by_channel", creds, sheet_id, disp_start, disp_end)

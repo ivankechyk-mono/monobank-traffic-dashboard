@@ -217,6 +217,60 @@ class GA4Connector:
             .reset_index(drop=True)
         )
 
+    def get_conversions(self, date_range: tuple[str, str]) -> pd.DataFrame:
+        """
+        Конверсії по продуктах: старт воронки і успішне завершення.
+        Повертає: date, product, stage (start|success), event_name, event_count
+        """
+        CONVERSION_EVENTS = {
+            "fop_onboarding_start":               ("ФОП",      "start"),
+            "fop_onboarding_success":             ("ФОП",      "success"),
+            "onboarding_verifying_client_data":   ("ЮО",       "start"),
+            "onboarding_account_activated":       ("ЮО",       "success"),
+            "business_mca_modal_opened":          ("Аванс",    "start"),
+            "business_mca_application_submitted": ("Аванс",    "success"),
+        }
+
+        start_date, end_date = date_range
+        rows = []
+
+        for event_name, (product, stage) in CONVERSION_EVENTS.items():
+            request = RunReportRequest(
+                property=f"properties/{self.property_id}",
+                dimensions=[Dimension(name="date")],
+                metrics=[Metric(name="eventCount")],
+                date_ranges=[DateRange(start_date=start_date, end_date=end_date)],
+                dimension_filter=FilterExpression(
+                    filter=Filter(
+                        field_name="eventName",
+                        string_filter=Filter.StringFilter(
+                            value=event_name,
+                            match_type=Filter.StringFilter.MatchType.EXACT,
+                        ),
+                    )
+                ),
+                limit=500,
+            )
+            response = self.client.run_report(request)
+            for row in response.rows:
+                rows.append({
+                    "date":        _fmt_date(row.dimension_values[0].value),
+                    "product":     product,
+                    "stage":       stage,
+                    "event_name":  event_name,
+                    "event_count": int(row.metric_values[0].value),
+                })
+
+        cols = ["date", "product", "stage", "event_name", "event_count"]
+        if not rows:
+            return pd.DataFrame(columns=cols)
+
+        return (
+            pd.DataFrame(rows, columns=cols)
+            .sort_values(["date", "product"])
+            .reset_index(drop=True)
+        )
+
     # Залишаємо старі методи для зворотної сумісності з тестами
     def get_engagement_metrics(self, date_range: tuple[str, str]) -> pd.DataFrame:
         start_date, end_date = date_range

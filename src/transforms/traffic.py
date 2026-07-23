@@ -604,3 +604,34 @@ def add_week_start(df: pd.DataFrame, week_start: str) -> pd.DataFrame:
 
 def drop_duplicates(df: pd.DataFrame) -> pd.DataFrame:
     return df.drop_duplicates(subset=["week_start", "channel"]).reset_index(drop=True)
+
+
+def aggregate_conversions(df_conversions: pd.DataFrame, week_start: str) -> pd.DataFrame:
+    """
+    Агрегує конверсії за тиждень по продуктах.
+    Повертає: week_start, product, starts, successes, cr_pct, source_note
+    """
+    if df_conversions.empty:
+        return pd.DataFrame(columns=[
+            "week_start", "product", "starts", "successes", "cr_pct", "source_note"
+        ])
+
+    df = df_conversions.copy()
+    df["event_count"] = pd.to_numeric(df["event_count"], errors="coerce").fillna(0)
+
+    agg = df.groupby(["product", "stage"])["event_count"].sum().unstack(fill_value=0).reset_index()
+    if "start" not in agg.columns:
+        agg["start"] = 0
+    if "success" not in agg.columns:
+        agg["success"] = 0
+
+    agg = agg.rename(columns={"start": "starts", "success": "successes"})
+    agg["cr_pct"] = (agg["successes"] / agg["starts"] * 100).where(agg["starts"] > 0, 0).round(1)
+    agg["source_note"] = agg.apply(
+        lambda r: f"GA4 events — {r['product']}: {int(r['starts'])} старт, {int(r['successes'])} успіх, CR {r['cr_pct']}%",
+        axis=1,
+    )
+    agg.insert(0, "week_start", week_start)
+
+    cols = ["week_start", "product", "starts", "successes", "cr_pct", "source_note"]
+    return agg[cols].sort_values("successes", ascending=False).reset_index(drop=True)

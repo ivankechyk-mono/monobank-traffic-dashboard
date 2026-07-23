@@ -22,6 +22,7 @@ from src.transforms.traffic import (
     aggregate_ads_keywords,
     aggregate_engagement,
     aggregate_meta_ads,
+    aggregate_conversions,
 )
 from src.transforms.product_matrix import build_product_matrix
 from src.loaders.sheets import upsert_weekly_snapshot
@@ -73,6 +74,14 @@ def run():
 
     log.info("GA4: отримую product events (ЮО, ЗП-проект, Аванс)...")
     df_events = connector.get_product_events(date_range=(week_start_api, week_end_api))
+
+    log.info("GA4: отримую конверсії (ФОП, ЮО, Аванс)...")
+    df_conv_raw = connector.get_conversions(date_range=(week_start_api, week_end_api))
+    df_conv = aggregate_conversions(df_conv_raw, week_start_display)
+    upsert_weekly_snapshot(df_conv, tab_name="conversions", date_col="week_start",
+                           credentials=creds, sheet_id=sheet_id,
+                           week_start=week_start_display, week_end=week_end_display)
+    log.info(f"GA4 конверсії: записано {len(df_conv)} рядків")
 
     df_traffic = build_traffic_by_channel(df_channel, df_eng, week_start_display, df_events)
     upsert_weekly_snapshot(df_traffic, tab_name="traffic_by_channel", date_col="week_start",
