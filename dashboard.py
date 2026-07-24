@@ -154,6 +154,30 @@ label[data-testid="stToggle"] span {{ color: {TEXT_DIM} !important; font-size: 0
 
 /* Hr divider */
 .divider {{ border: none; border-top: 1px solid {BORDER}; margin: 16px 0; }}
+
+/* Quick-range buttons */
+div[data-testid="stButton"] > button {{
+    font-size: 0.82rem !important;
+    padding: 4px 10px !important;
+    border-radius: 6px !important;
+    font-weight: 500 !important;
+}}
+div[data-testid="stButton"] > button[kind="secondary"] {{
+    background: {BG2} !important;
+    border: 1px solid {BORDER} !important;
+    color: {TEXT_DIM} !important;
+}}
+div[data-testid="stButton"] > button[kind="primary"] {{
+    background: {BLUE} !important;
+    border: 1px solid {BLUE} !important;
+    color: #fff !important;
+}}
+
+/* Date range input */
+div[data-testid="stDateInput"] input {{
+    font-size: 0.83rem !important;
+    color: {TEXT} !important;
+}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -414,43 +438,70 @@ st.markdown(
 )
 
 # ── Фільтри ───────────────────────────────────────────────────────────────────
-fc1, fc2, fc3 = st.columns([1.4, 2.5, 1.2])
+QUICK_RANGES = {
+    "7д":    7,
+    "28д":   28,
+    "3міс":  90,
+    "12міс": 365,
+}
 
-with fc1:
-    st.markdown(f'<div class="filter-label">Гранулярність</div>', unsafe_allow_html=True)
-    granularity = st.radio("", ["Тиждень", "Місяць"], horizontal=True, label_visibility="collapsed")
+# Стан швидкого діапазону
+if "quick_range" not in st.session_state:
+    st.session_state.quick_range = "28д"
 
-with fc2:
-    if granularity == "Тиждень":
-        st.markdown(f'<div class="filter-label">Кількість тижнів</div>', unsafe_allow_html=True)
-        n_weeks = st.slider("", min_value=1, max_value=min(40, len(all_weeks)),
-                            value=min(12, len(all_weeks)), label_visibility="collapsed")
-        d_end   = data_max
-        d_start = (pd.Timestamp(data_max) - pd.Timedelta(weeks=n_weeks - 1)).date()
-        period_label = f"Останні {n_weeks} тижнів"
-        st.markdown(
-            f'<div style="font-size:0.75rem;color:{TEXT_DIM};margin-top:-6px;">'
-            f'{pd.Timestamp(d_start).strftime("%d.%m.%Y")} – {pd.Timestamp(d_end).strftime("%d.%m.%Y")}'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-    else:
-        st.markdown(f'<div class="filter-label">Місяць</div>', unsafe_allow_html=True)
-        if all_month_labels:
-            sel_month = st.selectbox("", all_month_labels,
-                                     index=len(all_month_labels) - 1,
-                                     label_visibility="collapsed")
-            m = pd.Period(sel_month, freq="M")
-            d_start = m.start_time.date()
-            d_end   = min(m.end_time.date(), data_max)
-        else:
-            d_start, d_end = data_min, data_max
-        period_label = sel_month if all_month_labels else "—"
+fr_cols = st.columns([3.5, 0.8, 1.5])
 
-with fc3:
+with fr_cols[0]:
+    st.markdown(f'<div class="filter-label">Діапазон</div>', unsafe_allow_html=True)
+    btn_cols = st.columns(len(QUICK_RANGES) + 1)
+    for i, (label, days) in enumerate(QUICK_RANGES.items()):
+        is_active = st.session_state.quick_range == label
+        if btn_cols[i].button(
+            label,
+            key=f"qr_{label}",
+            type="primary" if is_active else "secondary",
+            use_container_width=True,
+        ):
+            st.session_state.quick_range = label
+            st.rerun()
+    if btn_cols[len(QUICK_RANGES)].button(
+        "Свій",
+        key="qr_custom",
+        type="primary" if st.session_state.quick_range == "custom" else "secondary",
+        use_container_width=True,
+    ):
+        st.session_state.quick_range = "custom"
+        st.rerun()
+
+with fr_cols[2]:
     st.markdown(f'<div class="filter-label">Продукти</div>', unsafe_allow_html=True)
     sel_products = st.multiselect("", ["Всі"] + all_products, default=["Всі"],
                                   label_visibility="collapsed", placeholder="Всі продукти")
+
+# Обчислення дат
+if st.session_state.quick_range == "custom":
+    custom_range = st.date_input(
+        "Оберіть діапазон",
+        value=(data_max - timedelta(days=27), data_max),
+        min_value=data_min,
+        max_value=data_max,
+        format="DD.MM.YYYY",
+        label_visibility="collapsed",
+    )
+    if isinstance(custom_range, (list, tuple)) and len(custom_range) == 2:
+        d_start, d_end = custom_range[0], custom_range[1]
+    else:
+        d_start = d_end = data_max
+    period_label = f"{d_start.strftime('%d.%m.%Y')} – {d_end.strftime('%d.%m.%Y')}"
+else:
+    days = QUICK_RANGES[st.session_state.quick_range]
+    d_end   = data_max
+    d_start = (pd.Timestamp(data_max) - pd.Timedelta(days=days - 1)).date()
+    period_label = st.session_state.quick_range
+
+# Гранулярність для графіків — авто залежно від діапазону
+period_days_total = (pd.Timestamp(d_end) - pd.Timestamp(d_start)).days + 1
+granularity = "Місяць" if period_days_total > 60 else "Тиждень"
 
 # Порівняння — окремий рядок з поясненням
 cmp_col, info_col = st.columns([1, 4])
